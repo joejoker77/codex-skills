@@ -1,0 +1,42 @@
+name: artifacts
+
+# Event-triggered only. There is deliberately no `schedule:` here and there must never be one:
+# nothing in this pipeline may run on a clock, and nothing in it may call a model. A scheduled
+# judgement is a scheduled bill, and this fleet has already paid one.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # the sensitive-paths gate needs the base to diff against
+
+      - name: Fetch the scanner from the platform
+        run: |
+          # The scanner lives with the platform that enforces it, so this repository cannot
+          # weaken its own examiner by editing a copy.
+          curl -fsSL -o ci/scan.py \
+            https://raw.githubusercontent.com/joejoker77/codex-fleet-platform/main/runtime/artifacts/scan.py
+          test -s ci/scan.py
+
+      - name: Artifacts
+        run: python3 ci/scan.py skills && { [ ! -d mcp ] || python3 ci/scan.py mcp; }
+
+      - name: Sensitive paths
+        if: github.event_name == 'pull_request'
+        run: |
+          ci/gate-sensitive-paths.sh "origin/${{ github.base_ref }}" \
+            "${{ join(github.event.pull_request.labels.*.name, ' ') }}"
+
+      - name: Rate limit
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ci/gate-rate-limit.sh "${{ github.event.pull_request.user.login }}" \
+            "${{ join(github.event.pull_request.labels.*.name, ' ') }}"
