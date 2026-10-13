@@ -1,8 +1,9 @@
 name: artifacts
 
-# Event-triggered only. There is deliberately no `schedule:` here and there must never be one:
-# nothing in this pipeline may run on a clock, and nothing in it may call a model. A scheduled
-# judgement is a scheduled bill, and this fleet has already paid one.
+# Event-triggered only. There is deliberately no `schedule:` here and there must never be one.
+# One step does call a model — the judge — and that is exactly why: a scheduled judgement is a
+# scheduled bill, and this fleet has already paid one. $360 in a night, re-reading content
+# nobody had changed. On an event, against a diff, the same judge costs a few cents.
 on:
   pull_request:
   push:
@@ -40,3 +41,14 @@ jobs:
         run: |
           ci/gate-rate-limit.sh "${{ github.event.pull_request.user.login }}" \
             "${{ join(github.event.pull_request.labels.*.name, ' ') }}"
+
+      # The semantic half. Patterns cannot read, so this one does — on the files this pull
+      # request changed and on nothing else. There is no `schedule:` in this file and there must
+      # never be one: a judge on a clock re-scored unchanged content on this fleet for a night
+      # and cost $360. Every cap it runs under is in ci/gate-llm-judge.py, and the spend ceiling
+      # that matters is on the key itself, at the provider.
+      - name: Judge
+        if: github.event_name == 'pull_request'
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: python3 ci/gate-llm-judge.py "origin/${{ github.base_ref }}"
