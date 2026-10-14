@@ -1,3 +1,8 @@
+---
+name: session-recall
+description: Find what was already said in an earlier conversation instead of asking the person to repeat it. Use when they refer to something settled earlier that is not in front of you.
+---
+
 # Skill: session-recall
 
 Find what was already said instead of asking the person to say it again.
